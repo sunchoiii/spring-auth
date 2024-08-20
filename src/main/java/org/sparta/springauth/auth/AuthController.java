@@ -1,9 +1,12 @@
 package org.sparta.springauth.auth;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.sparta.springauth.entity.UserRoleEnum;
+import org.sparta.springauth.jwt.JwtUtil;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +20,14 @@ import java.net.URLEncoder;
 public class AuthController {
 
     public static final String AUTHORIZATION_HEADER = "Authorization";
+
+    // JwtUtil 빈 가져오기
+    private final JwtUtil jwtUtil;
+
+    public AuthController(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
 
     //쿠키 만드는 코드
     @GetMapping("/create-cookie")
@@ -56,6 +67,43 @@ public class AuthController {
 
         return "getSession : " + value;
     }
+
+
+    // JWT 테스트
+    @GetMapping("/create-jwt")
+    public String createJwt(HttpServletResponse res) {
+        // Jwt 생성
+        String token = jwtUtil.createToken("Robbie", UserRoleEnum.USER);
+
+        // Jwt 쿠키 저장
+        jwtUtil.addJwtToCookie(token, res);
+
+        return "createJwt : " + token;
+    }
+
+    //가져오는 코드
+    @GetMapping("/get-jwt")
+    public String getJwt(@CookieValue(JwtUtil.AUTHORIZATION_HEADER) String tokenValue) {
+        // JWT 토큰 substring
+        String token = jwtUtil.substringToken(tokenValue);
+
+        // 토큰 검증
+        if(!jwtUtil.validateToken(token)){
+            throw new IllegalArgumentException("Token Error");
+        }
+
+        // 토큰에서 사용자 정보 가져오기
+        Claims info = jwtUtil.getUserInfoFromToken(token);
+        // 사용자 username
+        String username = info.getSubject();
+        System.out.println("username = " + username);
+        // 사용자 권한
+        String authority = (String) info.get(JwtUtil.AUTHORIZATION_KEY);
+        System.out.println("authority = " + authority);
+
+        return "getJwt : " + username + ", " + authority;
+    }
+
 
     //쿠키 저장하는 메서드
     public static void addCookie(String cookieValue, HttpServletResponse res) {
